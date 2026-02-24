@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Escape Room: Laboratorio UDC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root { --p: #e91e63; --s: #00bcd4; --t: #4caf50; --y: #ffeb3b; --udc: #003366; --lab: #2c3e50; }
+        body { font-family: 'Quicksand', sans-serif; background: var(--lab); margin: 0; padding: 20px; color: #333; }
+        .container { background: white; border-radius: 30px; border: 8px solid var(--udc); max-width: 950px; margin: auto; padding: 30px; box-shadow: 0 0 50px rgba(0,255,255,0.2); position: relative; }
+        
+        /* Ajuste para evitar saltos de página feos en el PDF */
+        #report-area { width: 100%; }
+
+        .map-route { display: flex; justify-content: space-between; margin-bottom: 25px; background: #dfe6e9; padding: 15px; border-radius: 50px; border: 2px solid var(--udc); }
+        .dot { width: 40px; height: 40px; background: #b2bec3; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; transition: 0.4s; }
+        .dot.active { background: var(--p); transform: scale(1.3); box-shadow: 0 0 15px var(--p); }
+        .dot.completed { background: var(--t); }
+        
+        .credits-trigger { position: fixed; top: 20px; right: 20px; background: var(--y); color: var(--udc); width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 24px; z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 2px solid var(--udc); }
+        .credits-panel { display: none; position: fixed; top: 75px; right: 20px; background: white; border: 3px solid var(--udc); padding: 20px; border-radius: 20px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 280px; }
+        
+        h1 { font-family: 'Fredoka One', cursive; color: var(--udc); text-align: center; margin-top: 0; text-transform: uppercase; letter-spacing: 2px; }
+        .instr { font-size: 19px; background: #f1f2f6; padding: 15px; border-radius: 15px; border-left: 5px solid var(--s); margin-bottom: 20px; }
+        .stage { display: none; text-align: center; }
+        .active { display: block; animation: zoomIn 0.4s ease; }
+        
+        @keyframes zoomIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .btn { background: var(--t); color: white; padding: 15px 35px; border: none; border-radius: 50px; font-size: 20px; font-weight: bold; cursor: pointer; box-shadow: 0 6px #27ae60; margin: 10px; transition: 0.3s; }
+        .btn:hover { background: #2ecc71; transform: translateY(-3px); }
+        .btn-blue { background: var(--s); box-shadow: 0 6px #0984e3; }
+        
+        .resource-card { background: #f8f9fa; padding: 15px; border-radius: 25px; border: 4px dashed var(--udc); margin: 20px 0; }
+        iframe { width: 100%; border-radius: 20px; border: none; background: white; min-height: 480px; }
+        
+        /* Estilos PDF (Cabecera Institucional) */
+        .pdf-header { display: none; text-align: center; padding-bottom: 20px; border-bottom: 2px solid var(--udc); margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+        th, td { border: 1px solid #ccc; padding: 12px; text-align: center; }
+        th { background: var(--udc); color: white; }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        canvas { max-width: 100%; height: auto !important; }
+
+        .story-alert { background: #00cec9; color: white; padding: 10px; border-radius: 10px; margin-bottom: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="credits-trigger" onclick="toggleCredits()">?</div>
+<div class="credits-panel" id="creditsPanel">
+    <center><b style="color:var(--udc)">UNIVERSIDAD DE CARTAGENA</b></center><hr>
+    <p><b>Maestría:</b> Recursos Digitales</p>
+    <p><b>Integrantes:</b><br>
+    - Danna Lucero Adame P.<br>
+    - Paula Andrea Grueso S.<br>
+    - Leison Sánchez Tarache</p>
+</div>
+
+<div class="container" id="report-area">
+    <div class="pdf-header" id="pdfHeader">
+        <h2 style="margin:0; color:#003366;">UNIVERSIDAD DE CARTAGENA</h2>
+        <h4 style="margin:5px 0;">MAESTRÍA EN RECURSOS DIGITALES APLICADOS A LA EDUCACIÓN</h4>
+        <p style="margin:0; font-size:14px;">Reporte Final de Misión: Reproducción Humana en Grado 5°</p>
+    </div>
+
+    <div id="routeMap" class="map-route" style="display:none;">
+        <div class="dot" id="dot1">1</div>
+        <div class="dot" id="dot2">2</div>
+        <div class="dot" id="dot3">3</div>
+        <div class="dot" id="dot4">4</div>
+        <div class="dot" id="dot5">5</div>
+    </div>
+
+    <h1>🔬 ESCAPE ROOM: LABORATORIO UDC</h1>
+
+    <div id="s0" class="stage active">
+        <center>
+            <img src="https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=300" style="border-radius: 20px; border: 5px solid var(--udc);">
+            <h2 style="color: var(--p);">¡ATRAPADO EN EL LABORATORIO!</h2>
+            <div class="instr">
+                "¡Alerta! Las puertas se han bloqueado. Para salir, debes demostrar tus conocimientos sobre la <b>Reproducción Humana</b>."
+            </div>
+            <p>Escribe tu nombre de Investigador:</p>
+            <input type="text" id="userName" style="padding:15px; border-radius:15px; border:2px solid var(--s); width:60%;" placeholder="Tu nombre...">
+            <br><br>
+            <button class="btn" onclick="startApp()">¡INICIAR ESCAPE!</button>
+        </center>
+    </div>
+
+    <div id="s1" class="stage">
+        <div class="story-alert">🔒 CERRADURA 1: CÉLULAS SEXUALES</div>
+        <h2>🕹️ Terminal 1: Wordwall</h2>
+        <div class="resource-card">
+            <iframe src="https://wordwall.net/es/embed/67602bd49aea408594e0f0eff5bcb1c0?themeId=1&templateId=22"></iframe>
+        </div>
+        <p><b>¿Cuál es la célula sexual masculina?</b></p>
+        <button class="btn btn-blue" onclick="validate(1, true)">Espermatozoide</button>
+        <button class="btn btn-blue" onclick="validate(1, false)">Óvulo</button>
+    </div>
+
+    <div id="s2" class="stage">
+        <div class="story-alert">🔓 ¡PUERTA 1 ABIERTA!</div>
+        <h2>📅 Terminal 2: Tiempo de Gestación</h2>
+        <div class="resource-card">
+            <iframe src="https://www.clinicaalemana.cl/especialidades/maternidad-y-familia/maternidad-integral/semanas-del-embarazo/calculadora-de-semanas-de-embarazo"></iframe>
+        </div>
+        <p><b>¿A las cuántas semanas suele ocurrir el parto?</b></p>
+        <button class="btn btn-blue" onclick="validate(2, true)">A las 40 semanas</button>
+        <button class="btn btn-blue" onclick="validate(2, false)">A las 10 semanas</button>
+    </div>
+
+    <div id="s3" class="stage">
+        <div class="story-alert">🔑 CÓDIGO ACEPTADO</div>
+        <h2>🎥 Terminal 3: Cordón Mágico</h2>
+        <div class="resource-card">
+            <iframe src="https://www.youtube.com/embed/TRZpYp9uE_0"></iframe>
+        </div>
+        <p><b>¿Cómo recibe el oxígeno el bebé en el útero?</b></p>
+        <button class="btn btn-blue" onclick="validate(3, true)">Cordón umbilical</button>
+        <button class="btn btn-blue" onclick="validate(3, false)">Por la nariz</button>
+    </div>
+
+    <div id="s4" class="stage">
+        <div class="story-alert">⚡ ENERGÍA AL 80%</div>
+        <h2>📱 Terminal 4: Tecnología 3D</h2>
+        <div class="resource-card">
+            <center>
+                <img src="https://is1-ssl.mzstatic.com/image/thumb/Purple126/v4/91/9b/6c/919b6c33-87a4-0c20-6d9b-7411267814e4/AppIcon-0-0-1x_U007emarketing-0-0-0-7-0-0-sRGB-0-0-0-GLES2_U002c0-512MB-85-220-0-0.png/246x0w.webp" style="width:80px; border-radius:15px;"><br>
+                <a href="https://play.google.com/store/apps/details?id=com.wachanga.pregnancy&hl=es_CO" target="_blank" class="btn btn-blue" style="font-size:14px;">VER APP 🔗</a>
+            </center>
+        </div>
+        <p><b>¿Qué usa la app para comparar el tamaño del bebé?</b></p>
+        <button class="btn btn-blue" onclick="validate(4, true)">Modelos 3D y Frutas</button>
+        <button class="btn btn-blue" onclick="validate(4, false)">Solo texto</button>
+    </div>
+
+    <div id="s5" class="stage">
+        <div class="story-alert">🛑 ÚLTIMO PASO</div>
+        <h2>🎥 Terminal 5: Etapas Finales</h2>
+        <div class="resource-card">
+            <iframe src="https://www.youtube.com/embed/S_8qM-RbeNo"></iframe>
+        </div>
+        <p><b>¿Cómo se llama el proceso de salida del bebé?</b></p>
+        <button class="btn btn-blue" onclick="validate(5, true)">El Parto</button>
+        <button class="btn btn-blue" onclick="validate(5, false)">La Fecundación</button>
+    </div>
+
+    <div id="s6" class="stage">
+        <center>
+            <h2 style="color: var(--t);">🚀 ¡MISIÓN CUMPLIDA! 🚀</h2>
+            <div id="finalReportContent" style="background:#fff; padding:20px; border-radius:20px; border:2px solid #eee;">
+                <p style="font-size: 18px;"><b>Científico:</b> <span id="displayUser"></span></p>
+                <table>
+                    <tr><th>Métrica</th><th>Resultado</th></tr>
+                    <tr><td>Aciertos</td><td id="res-a">0</td></tr>
+                    <tr><td>Alarmas</td><td id="res-d">0</td></tr>
+                    <tr><td><b>Calificación</b></td><td id="res-p">0%</td></tr>
+                </table>
+                <div class="stats-grid">
+                    <canvas id="chartTorta" width="300" height="300"></canvas>
+                    <canvas id="chartBarras" width="300" height="300"></canvas>
+                </div>
+            </div>
+            <br>
+            <button class="btn" id="btnPdf" onclick="downloadPDF()">📥 DESCARGAR HOJA CARTA PDF</button>
+            <button class="btn btn-blue" onclick="location.reload()">🔄 REINTENTAR</button>
+        </center>
+    </div>
+</div>
+
+<script>
+    let studentName = "";
+    let correctCount = 0;
+    let wrongCount = 0;
+    let stageAttempts = {1:0, 2:0, 3:0, 4:0, 5:0};
+
+    function toggleCredits() {
+        let p = document.getElementById('creditsPanel');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function startApp() {
+        studentName = document.getElementById('userName').value;
+        if(studentName.length < 3) return alert("Escribe tu nombre.");
+        document.getElementById('displayUser').innerText = studentName;
+        document.getElementById('routeMap').style.display = 'flex';
+        updateRoute(1);
+        next(1);
+    }
+
+    function updateRoute(n) {
+        for(let i=1; i<=5; i++){
+            let d = document.getElementById('dot'+i);
+            d.className = 'dot';
+            if(i < n) d.classList.add('completed');
+            if(i === n) d.classList.add('active');
+        }
+    }
+
+    function next(n) {
+        document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+        document.getElementById('s' + n).classList.add('active');
+        if(n <= 5) updateRoute(n);
+        else document.getElementById('routeMap').style.display = 'none';
+    }
+
+    function validate(q, isCorrect) {
+        if(isCorrect) {
+            alert("✅ ¡CÓDIGO CORRECTO!");
+            if(stageAttempts[q] === 0) correctCount++;
+            if(q < 5) next(q + 1); else showFinal();
+        } else {
+            wrongCount++;
+            stageAttempts[q]++;
+            alert("🚨 ALERTA: Inténtalo de nuevo.");
+        }
+    }
+
+    function showFinal() {
+        next(6);
+        document.getElementById('res-a').innerText = correctCount;
+        document.getElementById('res-d').innerText = wrongCount;
+        let total = correctCount + wrongCount;
+        document.getElementById('res-p').innerText = ((correctCount/total)*100).toFixed(1) + "%";
+
+        new Chart(document.getElementById('chartTorta'), {
+            type: 'pie',
+            data: { labels: ['Aciertos', 'Alarmas'], datasets: [{ data: [correctCount, wrongCount], backgroundColor: ['#4caf50', '#e91e63'] }] },
+            options: { responsive: false }
+        });
+
+        new Chart(document.getElementById('chartBarras'), {
+            type: 'bar',
+            data: { labels: ['R1', 'R2', 'R3', 'R4', 'R5'], datasets: [{ label: 'Errores', data: Object.values(stageAttempts), backgroundColor: '#00bcd4' }] },
+            options: { responsive: false }
+        });
+    }
+
+    function downloadPDF() {
+        // Preparar vista para PDF
+        const element = document.getElementById('report-area');
+        const pdfHeader = document.getElementById('pdfHeader');
+        const btnPdf = document.getElementById('btnPdf');
+        
+        pdfHeader.style.display = 'block';
+        btnPdf.style.display = 'none';
+
+        const opt = {
+            margin: [10, 10, 10, 10], // Margen en mm
+            filename: `Reporte_UDC_${studentName}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2, 
+                logging: false, 
+                useCORS: true 
+            },
+            jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            pdfHeader.style.display = 'none';
+            btnPdf.style.display = 'inline-block';
+        });
+    }
+</script>
+</body>
+</html>
